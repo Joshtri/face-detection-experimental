@@ -3,8 +3,8 @@ let canvas = document.body.appendChild(document.createElement("canvas"));
 
 let ctx = canvas.getContext("2d");
 
-let width = 1280;
-let height = 720;
+let width = 540;
+let height = 540;
 
 
 const startStream = () =>{
@@ -17,7 +17,7 @@ const startStream = () =>{
     }); 
 }
 
-console.log(faceapi.nets);
+// console.log(faceapi.nets);
 console.log('---------- START LOAD MODEL ----------');
 Promise.all([
     faceapi.nets.ageGenderNet.loadFromUri('models'),
@@ -29,10 +29,36 @@ Promise.all([
 ]).then(startStream());
 
 async function detect(){
-    const detections = await faceapi.detectAllFaces(video);
-    console.log(detections);
+    const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceExpressions()
+    .withAgeAndGender();
+    // console.log(detections);
+    
+    ctx.clearRect(0,0,width, height);
+    // resize the detected boxes in case your displayed image has a different size than the original
+    const resizedDetections = faceapi.resizeResults(detections, displaySize)
+    // draw detections into the canvas
+    faceapi.draw.drawDetections(canvas, resizedDetections)
+    faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
+    faceapi.draw.drawFaceExpressions(canvas, resizedDetections)
+    // faceapi.draw.drawFaceLandmarks(canvas, resizedDetections)
+
+
+    resizedDetections.forEach(result=>{
+        const {age, gender, genderProbability, detections} = result;
+        if (detections) {
+          new faceapi.draw.DrawTextField([
+            `${Math.round(age,0)} Tahun`,
+            `${gender} ${Math.round(genderProbability)}`
+          ],
+          detections.box.bottomRight).draw(canvas);
+        }
+      });
 }
 
 video.addEventListener('play', ()=>{
+    displaySize = {width, height};
+    faceapi.matchDimensions(canvas,displaySize);
+
+
     setInterval(detect,100);
 })
